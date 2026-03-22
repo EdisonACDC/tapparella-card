@@ -1,28 +1,36 @@
-# Tapparella Card
+# 🪟 Tapparella Card
 
-  Card domotica per la gestione delle tapparelle, costruita con React e TypeScript.
+  Card personalizzata Lovelace per Home Assistant per la gestione delle tapparelle domotiche.
+
+  [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 
   ## Funzionalità
 
+  - Illustrazione SVG della finestra che si **oscura progressivamente** con la chiusura
   - **Percentuale di apertura** con barra colorata dinamica
-  - **Illustrazione SVG** della finestra che si oscura in base alla chiusura della tapparella
-  - **Toggle finestra** aperta/chiusa con visualizzazione nel disegno
-  - **Pulsanti rapidi**: Chiudi / 50% / Apri
-  - **Avviso automatico** se la finestra è aperta con tapparella quasi chiusa
+  - Pulsanti **Chiudi / Stop / Apri**
+  - Stato della **finestra aperta o chiusa** (sensore opzionale)
+  - Avviso se finestra aperta con tapparella quasi chiusa
 
-  ## Stack
+  ## Installazione via HACS
 
-  - React + TypeScript
-  - Tailwind CSS
-  - SVG animato inline
+  1. In HACS → **Frontend** → clicca **+**
+  2. Aggiungi repository custom: `https://github.com/EdisonACDC/tapparella-card`
+  3. Seleziona **Tapparella Card** e installa
+  4. Riavvia Home Assistant
 
-  ## Utilizzo
+  ## Configurazione
 
-  ```tsx
-  import TapparellaCard from "./TapparellaCard";
-
-  function App() {
-    return <TapparellaCard />;
-  }
+  ```yaml
+  type: custom:tapparella-card
+  entity: cover.tapparella_soggiorno
+  name: Soggiorno
+  window_entity: binary_sensor.finestra_soggiorno  # opzionale
   ```
+
+  | Opzione | Tipo | Richiesto | Descrizione |
+  |--------|------|-----------|-------------|
+  | `entity` | string | ✅ | Entità cover della tapparella |
+  | `name` | string | ❌ | Nome visualizzato nella card |
+  | `window_entity` | string | ❌ | Sensore binario stato finestra |
   
