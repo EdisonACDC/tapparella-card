@@ -17,17 +17,8 @@
     static get SCHEMA() {
       return [
         { name: 'name', label: 'Nome visualizzato', selector: { text: {} } },
-        {
-          name: 'entity',
-          label: 'Entità tapparella (cover) *',
-          required: true,
-          selector: { entity: { domain: 'cover' } }
-        },
-        {
-          name: 'window_entity',
-          label: 'Sensore finestra (binary_sensor) – opzionale',
-          selector: { entity: { domain: 'binary_sensor' } }
-        },
+        { name: 'entity', label: 'Entità tapparella (cover) *', required: true, selector: { entity: { domain: 'cover' } } },
+        { name: 'window_entity', label: 'Sensore finestra (binary_sensor) – opzionale', selector: { entity: { domain: 'binary_sensor' } } },
       ];
     }
 
@@ -47,7 +38,6 @@
 
     _buildForm() {
       this.shadowRoot.innerHTML = '';
-
       const form = document.createElement('ha-form');
       form.hass = this._hass;
       form.data = this._config;
@@ -55,23 +45,15 @@
       form.computeLabel = (s) => s.label;
       form.addEventListener('value-changed', (e) => {
         this._config = e.detail.value;
-        this.dispatchEvent(new CustomEvent('config-changed', {
-          detail: { config: this._config },
-          bubbles: true,
-          composed: true,
-        }));
+        this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: this._config }, bubbles: true, composed: true }));
       });
-
       this._form = form;
       this.shadowRoot.appendChild(form);
     }
 
     _syncForm() {
-      if (this._form) {
-        this._form.data = this._config;
-      } else if (this.isConnected) {
-        this._buildForm();
-      }
+      if (this._form) this._form.data = this._config;
+      else if (this.isConnected) this._buildForm();
     }
   }
   customElements.define('tapparella-card-editor', TapparellaCardEditor);
@@ -123,6 +105,14 @@
     _callService(service) {
       if (!this._hass) return;
       this._hass.callService('cover', service, { entity_id: this._config.entity });
+    }
+
+    _setPosition(pos) {
+      if (!this._hass) return;
+      this._hass.callService('cover', 'set_cover_position', {
+        entity_id: this._config.entity,
+        position: parseInt(pos, 10)
+      });
     }
 
     _getWindowSvg(position, windowOpen) {
@@ -205,8 +195,13 @@
           .stxt{font-size:14px;font-weight:600}
           .pct{font-size:32px;font-weight:700;color:#1e293b}
           .pct span{font-size:18px;color:#94a3b8;font-weight:500}
-          .bw{background:#f1f5f9;border-radius:6px;height:8px;overflow:hidden}
-          .b{height:100%;border-radius:6px;transition:width .4s}
+          /* ─ slider bar ─ */
+          .slider-wrap{position:relative;height:28px;display:flex;align-items:center}
+          .bar-track{position:absolute;left:0;right:0;height:14px;background:#f1f5f9;border-radius:7px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.1)}
+          .bar-fill{height:100%;border-radius:7px;transition:width .15s}
+          .slider-input{position:absolute;left:0;right:0;top:0;bottom:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;padding:0}
+          .thumb{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);border:2px solid #cbd5e1;pointer-events:none;transition:left .15s}
+          /* ─ buttons ─ */
           .br{display:flex;gap:8px}
           .btn{flex:1;padding:8px 4px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s}
           .btn:hover{background:#f8fafc}
@@ -221,6 +216,7 @@
           .warn{margin-top:10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;font-size:12px;color:#92400e;font-weight:500}
           .ft{background:#f8fafc;padding:10px 18px;display:flex;justify-content:space-between;border-top:1px solid #f1f5f9}
           .ft span{font-size:12px;color:#94a3b8}
+          .bar-labels{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:4px}
         </style>
         <ha-card>
           <div class="card">
@@ -234,7 +230,16 @@
                 <div class="st"><div class="dot" style="background:${dotColor}"></div><span class="stxt" style="color:${dotColor}">${statusText}</span></div>
                 <div class="pct">${position}<span>%</span></div>
               </div>
-              <div class="bw"><div class="b" style="width:${position}%;background:${barColor}"></div></div>
+              <div>
+                <div class="bar-labels"><span>Chiusa</span><span>Apertura</span><span>Aperta</span></div>
+                <div class="slider-wrap">
+                  <div class="bar-track">
+                    <div class="bar-fill" id="bfill" style="width:${position}%;background:${barColor}"></div>
+                  </div>
+                  <input type="range" class="slider-input" id="slider" min="0" max="100" step="1" value="${position}">
+                  <div class="thumb" id="thumb" style="left:calc(${position}% - 11px)"></div>
+                </div>
+              </div>
               <div class="br">
                 <button class="btn" id="bc">Chiudi</button>
                 <button class="btn" id="bs">Stop</button>
@@ -247,6 +252,25 @@
           </div>
         </ha-card>`;
 
+      const slider = this.shadowRoot.getElementById('slider');
+      const bfill = this.shadowRoot.getElementById('bfill');
+      const thumb = this.shadowRoot.getElementById('thumb');
+      const pctEl = this.shadowRoot.querySelector('.pct');
+
+      const getBarColor = (v) => v === 0 ? '#94a3b8' : v < 50 ? '#34d399' : v < 100 ? '#fbbf24' : '#fb923c';
+
+      slider?.addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        bfill.style.width = v + '%';
+        bfill.style.background = getBarColor(v);
+        thumb.style.left = 'calc(' + v + '% - 11px)';
+        pctEl.innerHTML = v + '<span>%</span>';
+      });
+
+      slider?.addEventListener('change', (e) => {
+        this._setPosition(e.target.value);
+      });
+
       this.shadowRoot.getElementById('bc')?.addEventListener('click', () => this._callService('close_cover'));
       this.shadowRoot.getElementById('bs')?.addEventListener('click', () => this._callService('stop_cover'));
       this.shadowRoot.getElementById('bo')?.addEventListener('click', () => this._callService('open_cover'));
@@ -258,7 +282,7 @@
   window.customCards.push({
     type: 'tapparella-card',
     name: 'Tapparella Card',
-    description: 'Card per tapparelle domotiche con visualizzazione finestra',
+    description: 'Card per tapparelle domotiche con slider di controllo e visualizzazione finestra',
     preview: true,
   });
   
