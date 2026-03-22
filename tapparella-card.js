@@ -3,12 +3,91 @@
    * Custom Lovelace card per tapparelle domotiche
    * Autore: EdisonACDC
    */
+
+  // ── EDITOR VISUALE ─────────────────────────────────────────────────────────────
+  class TapparellaCardEditor extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._config = {};
+      this._hass = null;
+      this._form = null;
+    }
+
+    static get SCHEMA() {
+      return [
+        { name: 'name', label: 'Nome visualizzato', selector: { text: {} } },
+        {
+          name: 'entity',
+          label: 'Entità tapparella (cover) *',
+          required: true,
+          selector: { entity: { domain: 'cover' } }
+        },
+        {
+          name: 'window_entity',
+          label: 'Sensore finestra (binary_sensor) – opzionale',
+          selector: { entity: { domain: 'binary_sensor' } }
+        },
+      ];
+    }
+
+    setConfig(config) {
+      this._config = { ...config };
+      this._syncForm();
+    }
+
+    set hass(hass) {
+      this._hass = hass;
+      if (this._form) this._form.hass = hass;
+    }
+
+    connectedCallback() {
+      if (!this._form) this._buildForm();
+    }
+
+    _buildForm() {
+      this.shadowRoot.innerHTML = '';
+
+      const form = document.createElement('ha-form');
+      form.hass = this._hass;
+      form.data = this._config;
+      form.schema = TapparellaCardEditor.SCHEMA;
+      form.computeLabel = (s) => s.label;
+      form.addEventListener('value-changed', (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent('config-changed', {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
+      });
+
+      this._form = form;
+      this.shadowRoot.appendChild(form);
+    }
+
+    _syncForm() {
+      if (this._form) {
+        this._form.data = this._config;
+      } else if (this.isConnected) {
+        this._buildForm();
+      }
+    }
+  }
+  customElements.define('tapparella-card-editor', TapparellaCardEditor);
+
+
+  // ── CARD PRINCIPALE ─────────────────────────────────────────────────────────────
   class TapparellaCard extends HTMLElement {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
       this._hass = null;
       this._config = null;
+    }
+
+    static getConfigElement() {
+      return document.createElement('tapparella-card-editor');
     }
 
     static getStubConfig() {
@@ -176,5 +255,10 @@
 
   customElements.define('tapparella-card', TapparellaCard);
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: 'tapparella-card', name: 'Tapparella Card', description: 'Card per tapparelle domotiche con visualizzazione finestra', preview: true });
+  window.customCards.push({
+    type: 'tapparella-card',
+    name: 'Tapparella Card',
+    description: 'Card per tapparelle domotiche con visualizzazione finestra',
+    preview: true,
+  });
   
